@@ -34,6 +34,7 @@ class AES:
                 0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d)
     
     __Nb = 4
+    
     def __init__(self, key : bytes):
         self.__key_w, self.__Nr = self._KeyExpansion(key)
 
@@ -75,50 +76,50 @@ class AES:
                     | (((row >> (8 * 0)) & 0xFF) << (8 * (3 - i))))
         return result
 
-    def __mult_by_two(self, dword : int, r : int):
+    def __mult_by_two(self, byte : int):
         # Умножение на {02}
-        byte = self.__get_byte_from_dword(dword, r) << 1
+        byte <<= 1
         if byte.bit_length() > 8:
             byte = (byte & 0xFF) ^ 0x1b
         return byte                     
     
-    def __mult_by_three(self, dword : int, r : int):
+    def __mult_by_three(self, byte : int):
         # Умножение на {03}
-        byte = self.__get_byte_from_dword(dword, r) ^ self.__mult_by_two(dword, r)
+        byte ^= self.__mult_by_two(byte)
         return byte
     
-    def __mult_by_four(self, dword : int, r : int):
+    def __mult_by_four(self, byte : int):
         # Умножение на {04}
-        byte = self.__mult_by_two(dword, r) << 1
+        byte = self.__mult_by_two(byte) << 1
         if byte.bit_length() > 8:
             byte = (byte & 0xFF) ^ 0x1b
         return byte
     
-    def __mult_by_eight(self, dword : int, r : int):
+    def __mult_by_eight(self, byte : int):
         # Умножение на {08}
-        byte = self.__mult_by_four(dword, r) << 1
+        byte = self.__mult_by_four(byte) << 1
         if byte.bit_length() > 8:
             byte = (byte & 0xFF) ^ 0x1b
         return byte
     
-    def __mult_by_nine(self, dword : int, r : int):
+    def __mult_by_nine(self, byte : int):
         # Умножение на {09}
-        byte = self.__mult_by_eight(dword, r) ^ self.__get_byte_from_dword(dword, r)
+        byte ^= self.__mult_by_eight(byte)
         return byte
     
-    def __mult_by_b(self, dword : int, r : int):
+    def __mult_by_b(self, byte : int):
         # Умножение на {0b}
-        byte = self.__mult_by_eight(dword, r) ^ self.__mult_by_two(dword, r) ^ self.__get_byte_from_dword(dword, r)
+        byte ^= self.__mult_by_eight(byte) ^ self.__mult_by_two(byte)
         return byte
     
-    def __mult_by_d(self, dword : int, r : int):
+    def __mult_by_d(self, byte : int):
         # Умножение на {0d}
-        byte = self.__mult_by_eight(dword, r) ^ self.__mult_by_four(dword, r) ^ self.__get_byte_from_dword(dword, r)
+        byte ^= self.__mult_by_eight(byte) ^ self.__mult_by_four(byte)
         return byte
     
-    def __mult_by_e(self, dword : int, r : int):
+    def __mult_by_e(self, byte : int):
         # Умножение на {0e}
-        byte = self.__mult_by_eight(dword, r) ^ self.__mult_by_four(dword, r) ^ self.__mult_by_two(dword, r)
+        byte = self.__mult_by_eight(byte) ^ self.__mult_by_four(byte) ^ self.__mult_by_two(byte)
         return byte
 
     def _MixColumns(self, state: int):
@@ -126,10 +127,15 @@ class AES:
         for i in range(self.__Nb):
             dword = self.__get_column_dword(state, i)
         
-            s_0_c = self.__mult_by_two(dword, 0) ^ self.__mult_by_three(dword, 1) ^ self.__get_byte_from_dword(dword, 2) ^ self.__get_byte_from_dword(dword, 3)
-            s_1_c = self.__get_byte_from_dword(dword, 0) ^ self.__mult_by_two(dword, 1) ^ self.__mult_by_three(dword, 2) ^ self.__get_byte_from_dword(dword, 3)
-            s_2_c = self.__get_byte_from_dword(dword, 0) ^ self.__get_byte_from_dword(dword, 1) ^ self.__mult_by_two(dword, 2) ^ self.__mult_by_three(dword, 3)
-            s_3_c = self.__mult_by_three(dword, 0) ^ self.__get_byte_from_dword(dword, 1) ^ self.__get_byte_from_dword(dword, 2) ^ self.__mult_by_two(dword, 3)
+            first_byte = self.__get_byte_from_dword(dword, 0)
+            second_byte = self.__get_byte_from_dword(dword, 1)
+            third_byte = self.__get_byte_from_dword(dword, 2)
+            fourth_byte = self.__get_byte_from_dword(dword, 3)
+
+            s_0_c = self.__mult_by_two(first_byte) ^ self.__mult_by_three(second_byte) ^ third_byte ^ fourth_byte
+            s_1_c = first_byte ^ self.__mult_by_two(second_byte) ^ self.__mult_by_three(third_byte) ^ fourth_byte
+            s_2_c = first_byte ^ second_byte ^ self.__mult_by_two(third_byte) ^ self.__mult_by_three(fourth_byte)
+            s_3_c = self.__mult_by_three(first_byte) ^ second_byte ^ third_byte ^ self.__mult_by_two(fourth_byte)
 
             result =(result << 32) | (s_0_c << 8 * 3) | (s_1_c << 8 * 2) | (s_2_c << 8 * 1) | (s_3_c << 8 * 0)
 
@@ -209,11 +215,16 @@ class AES:
         result = 0
         for i in range(self.__Nb):
             dword = self.__get_column_dword(state, i)
-        
-            s_0_c = self.__mult_by_e(dword, 0) ^ self.__mult_by_b(dword, 1) ^ self.__mult_by_d(dword, 2) ^ self.__mult_by_nine(dword, 3)
-            s_1_c = self.__mult_by_nine(dword, 0) ^ self.__mult_by_e(dword, 1) ^ self.__mult_by_b(dword, 2) ^ self.__mult_by_d(dword, 3)
-            s_2_c = self.__mult_by_d(dword, 0) ^ self.__mult_by_nine(dword, 1) ^ self.__mult_by_e(dword, 2) ^ self.__mult_by_b(dword, 3)
-            s_3_c = self.__mult_by_b(dword, 0) ^ self.__mult_by_d(dword, 1) ^ self.__mult_by_nine(dword, 2) ^ self.__mult_by_e(dword, 3)
+            
+            first_byte = self.__get_byte_from_dword(dword, 0)
+            second_byte = self.__get_byte_from_dword(dword, 1)
+            third_byte = self.__get_byte_from_dword(dword, 2)
+            fourth_byte = self.__get_byte_from_dword(dword, 3)
+
+            s_0_c = self.__mult_by_e(first_byte) ^ self.__mult_by_b(second_byte) ^ self.__mult_by_d(third_byte) ^ self.__mult_by_nine(fourth_byte)
+            s_1_c = self.__mult_by_nine(first_byte) ^ self.__mult_by_e(second_byte) ^ self.__mult_by_b(third_byte) ^ self.__mult_by_d(fourth_byte)
+            s_2_c = self.__mult_by_d(first_byte) ^ self.__mult_by_nine(second_byte) ^ self.__mult_by_e(third_byte) ^ self.__mult_by_b(fourth_byte)
+            s_3_c = self.__mult_by_b(first_byte) ^ self.__mult_by_d(second_byte) ^ self.__mult_by_nine(third_byte) ^ self.__mult_by_e(fourth_byte)
 
             result =(result << 32) | (s_0_c << 8 * 3) | (s_1_c << 8 * 2) | (s_2_c << 8 * 1) | (s_3_c << 8 * 0)
 

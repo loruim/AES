@@ -1,6 +1,9 @@
 from aes import AES
 from FileRead import encrypt_file, decrypt_file
 import time
+import cProfile
+import pstats
+import io
 
 # 128, 192, 256
 #key = 0x2b7e151628aed2a6abf7158809cf4f3c
@@ -11,6 +14,8 @@ start_time = time.time()
 if __name__ == "__main__":
     key = b'\x60\x3d\xeb\x10\x15\xca\x71\xbe\x2b\x73\xae\xf0\x85\x7d\x77\x81\x1f\x35\x2c\x07\x3b\x61\x08\xd7\x2d\x98\x10\xa3\x09\x14\xdf\xf4'
     aes = AES(key)
+    profile = cProfile.Profile()
+    profile.enable()
     encrypt_file("input.txt", "ciphertext.txt", aes)
     decrypt_file("ciphertext.txt", "decodetext.txt", aes)
     end_time = time.time()
